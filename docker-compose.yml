@@ -1,0 +1,6 @@
+---
+version: '3'
+services:
+  papercut:
+    build:
+      context: .

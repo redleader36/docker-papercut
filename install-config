@@ -1,0 +1,6 @@
+#
+# Installation configuration
+#
+UNIX_USERNAME=root
+SETUP_FILE_PREFIX=pcng
+APP_NAME="PaperCut NG"
