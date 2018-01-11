@@ -26,6 +26,7 @@ RUN /home/papercut/MUST-RUN-AS-ROOT
 RUN mkdir -p /var/log/supervisord
 COPY supervisord.conf /supervisord.conf
 
+HEALTHCHECK CMD curl -k --fail http://127.0.0.1:9191 || exit 1
 EXPOSE 9191
 
 WORKDIR /home/papercut/server/bin/linux-x64
