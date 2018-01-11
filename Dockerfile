@@ -1,10 +1,33 @@
-FROM alpine
+FROM ubuntu
 LABEL author="Nicklaus McClendon"
 LABEL version="1.0.0"
+ARG PAPERCUT_URL="https://cdn.papercut.com/files/pcng/14.x/pcng-setup-14.3-linux-x64.sh"
 
-WORKDIR /papercut
-RUN apk add --no-cache bash curl perl
-RUN curl -fSL 'https://cdn.papercut.com/files/pcng/17.x/pcng-setup-17.3.6-linux-x64.sh' -o /tmp/install.sh && chmod +x /tmp/install.sh
-RUN target=/ /tmp/install.sh -e
-COPY install-config .install-config
-RUN /papercut/install --non-interactive
+#RUN apk add --no-cache bash curl perl shadow && useradd papercut -m -d /home/papercut
+RUN apt-get update && apt-get install -y \
+    curl \
+    cpio \
+    sudo \
+    supervisor \
+ && rm -rf /var/lib/apt/lists/*
+RUN useradd papercut -m -d /home/papercut
+RUN curl -fSL $PAPERCUT_URL -o /installpc.sh && chmod +x /installpc.sh && /installpc.sh -e && rm /installpc.sh
+
+RUN sed -i "s/manual=/manual=1/" /papercut/install
+RUN sed -i "s/answered=/answered=1/" /papercut/install
+RUN rm /papercut/LICENCE.TXT
+
+USER papercut
+RUN /papercut/install
+
+USER root
+RUN /home/papercut/MUST-RUN-AS-ROOT
+
+RUN mkdir -p /var/log/supervisord
+COPY supervisord.conf /supervisord.conf
+
+EXPOSE 9191
+
+WORKDIR /home/papercut/server/bin/linux-x64
+ENTRYPOINT ["/usr/bin/supervisord"]
+CMD ["-c", "/supervisord.conf"]

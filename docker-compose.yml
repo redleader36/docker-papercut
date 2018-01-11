@@ -4,3 +4,5 @@ services:
   papercut:
     build:
       context: .
+    ports:
+      - 9191:9191
