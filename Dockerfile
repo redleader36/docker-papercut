@@ -1,7 +1,7 @@
 FROM ubuntu
-LABEL author="Nicklaus McClendon"
+LABEL author="redleader36"
 LABEL version="1.0.0"
-ARG PAPERCUT_URL="https://cdn.papercut.com/web/products/ng-mf/installers/ng/20.x/pcng-setup-20.1.3.56198.sh"
+ARG PAPERCUT_URL="https://www.papercut.com/api/product/ng/latest/linux-x64/"
 
 #RUN apk add --no-cache bash curl perl shadow && useradd papercut -m -d /home/papercut
 RUN apt-get update && apt-get install -y \
