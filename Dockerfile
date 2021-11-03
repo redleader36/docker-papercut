@@ -2,6 +2,7 @@ FROM ubuntu
 LABEL author="redleader36"
 LABEL version="1.0.0"
 ARG PAPERCUT_URL="https://www.papercut.com/api/product/ng/latest/linux-x64/"
+ARG DEBIAN_FRONTEND=noninteractive
 
 #RUN apk add --no-cache bash curl perl shadow && useradd papercut -m -d /home/papercut
 RUN apt-get update && apt-get install -y \
