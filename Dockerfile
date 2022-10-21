@@ -1,69 +1,61 @@
-FROM ubuntu
+FROM --platform=linux/x86_64 ubuntu:xenial
 LABEL author="redleader36"
 LABEL version="1.0.0"
 ARG PAPERCUT_URL="https://www.papercut.com/api/product/ng/latest/linux-x64/"
-ARG DEBIAN_FRONTEND=noninteractive
+FROM --platform=linux/x86_64 ubuntu:xenial
 
-#RUN apk add --no-cache bash curl perl shadow && useradd papercut -m -d /home/papercut
-RUN apt-get update && apt-get install -y \
-    curl \
-    cpio \
-    sudo \
-    supervisor \
-    whois \
-    usbutils \
-    cups \
-    cups-client \
-    cups-bsd \
-    cups-filters \
-    foomatic-db-compressed-ppds \
-    printer-driver-all \
-    openprinting-ppds \
-    hpijs-ppds \
-    hp-ppd \
-    hplip \
-    smbclient \
-    printer-driver-cups-pdf \
-&& apt-get clean \
-&& rm -rf /var/lib/apt/lists/*
-RUN useradd papercut -m -d /home/papercut
+RUN apt-get update
+
+
+###### Install CUPS
+
+# install cups
+RUN apt-get install -y cups cups-filters cups-client whois sudo
+
+# create admin user cups
+# add user to lp, lpadmin
+# set password to cups
+# disable sudo password checking
 RUN useradd \
-    --groups=sudo,lp,lpadmin \
-    --create-home \
-    --home-dir=/home/print \
-    --shell=/bin/bash \
-    --password=$(mkpasswd print) \
-    print \
-&& sed -i '/%sudo[[:space:]]/ s/ALL[[:space:]]*$/NOPASSWD:ALL/' /etc/sudoers
+  --groups=sudo,lp,lpadmin \
+  --password=$(mkpasswd cups) \
+  cups \
+  && sed -i '/%sudo[[:space:]]/ s/ALL[[:space:]]*$/NOPASSWD:ALL/' /etc/sudoers
 
-# Configure the service's to be reachable
-RUN /usr/sbin/cupsd \
-    && while [ ! -f /var/run/cups/cupsd.pid ]; do sleep 1; done \
-    && cupsctl --remote-admin --remote-any --share-printers \
-    && kill $(cat /var/run/cups/cupsd.pid)
+# create default printer by writing to the conf file
+# this file is needed by papercut to monitor stuff
+COPY printers.conf /etc/cups/printers.conf
 
-# Patch the default configuration file to only enable encryption if requested
-RUN sed -e '0,/^</s//DefaultEncryption IfRequested\n&/' -i /etc/cups/cupsd.conf
+COPY cups.conf /etc/cups/cupsd.conf
 EXPOSE 631
 
-RUN curl -fSL $PAPERCUT_URL -o /installpc.sh && chmod +x /installpc.sh && /installpc.sh -e && rm /installpc.sh
 
-RUN sed -i "s/manual=/manual=1/" /papercut/install
-RUN sed -i "s/answered=/answered=1/" /papercut/install
-RUN rm /papercut/LICENCE.TXT
+###### Install papercut
 
-USER papercut
-RUN /papercut/install
+RUN apt-get install -y cups curl cpio perlbrew
 
-USER root
-RUN /home/papercut/MUST-RUN-AS-ROOT
+# Download papercut
+RUN curl -L "${PAPERCUT_URL}" -o /pcng-setup.sh && chmod a+rx /pcng-setup.sh
 
-RUN mkdir -p /var/log/supervisord
-COPY supervisord.conf /supervisord.conf
+# Create user && install papercut
+RUN useradd -mUd /papercut papercut
+RUN runuser -l papercut -c "/pcng-setup.sh --non-interactive" && rm -f /pcmf-setup.sh && /papercut/MUST-RUN-AS-ROOT
 
-HEALTHCHECK CMD curl -k --fail http://127.0.0.1:9191 || exit 1
-EXPOSE 9191
+# Stopping Papercut services before capturing image
+RUN /etc/init.d/papercut stop && /etc/init.d/papercut-web-print stop
 
-WORKDIR /home/papercut/server/bin/linux-x64
-ENTRYPOINT ["/usr/bin/supervisord"]
-CMD ["-c", "/supervisord.conf"]
+# so that we can easily print a test file
+# docker exec <container> runuser -l <user> "lp -d nul /lorem-ipsum.pdf"
+# COPY lorem-ipsum.pdf /
+
+COPY server.properties /papercut/server/server.properties
+EXPOSE 9191 9192 9193
+
+
+###### Clean up
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY entrypoint.sh /
+
+WORKDIR /papercut
+ENTRYPOINT ["/entrypoint.sh"]
